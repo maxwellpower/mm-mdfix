@@ -30,7 +30,7 @@ There are additional debug messages available by adding `DEBUG=true` to your env
 ### 2. Run the Docker Container
 
 ```bash
-docker run --env-file .env maxwelltpower/mm-mdfix
+docker run --env-file .env ghcr.io/maxwellpower/mm-mdfix
 ```
 
 #### Using Command Line
@@ -38,7 +38,7 @@ docker run --env-file .env maxwelltpower/mm-mdfix
 If you prefer to provide the environment variables directly:
 
 ```bash
-docker run -e DB_HOST=your_host -e DB_PORT=your_port -e DB_USER=your_user -e DB_PASSWORD=your_password -e DB_NAME=your_dbname -e CHANNEL_ID=optional_channel_id -e COMMIT_MODE=false maxwelltpower/mm-mdfix
+docker run -e DB_HOST=your_host -e DB_PORT=your_port -e DB_USER=your_user -e DB_PASSWORD=your_password -e DB_NAME=your_dbname -e CHANNEL_ID=optional_channel_id -e COMMIT_MODE=false ghcr.io/maxwellpower/mm-mdfix
 ```
 
 Replace the placeholders with your actual database connection details.
