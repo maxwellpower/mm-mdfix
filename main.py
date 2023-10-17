@@ -142,9 +142,6 @@ else:
     cursor.execute(
         "SELECT id, message FROM posts WHERE deleteat = 0 AND TRIM(message) <> ''")
 
-rows = cursor.fetchall()
-debug_print(BLUE + f"[DEBUG]: Fetched {len(rows)} rows from the database." + RESET)
-
 # Function to process each match
 def format_code_blocks(message, languages):
     # Define the regex pattern for code blocks
@@ -177,8 +174,8 @@ def format_code_blocks(message, languages):
     return result
 
 # Process and update each message
-for row in rows:
-    post_id, message = row
+for record in cursor:
+    post_id, message = record
     # Check if the message contains a code block
     if '```' in message:
         debug_print(BLUE +
