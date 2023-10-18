@@ -14,11 +14,11 @@
 # AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
 # ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+VERSION = "1.0.0"
+
 import os
 import re
 import psycopg2
-import sys
-import select
 
 # ANSI escape codes for styling
 RED = "\033[91m"
@@ -27,7 +27,7 @@ YELLOW = "\033[93m"
 BLUE = "\033[94m"
 BOLD = "\033[1m"
 RESET = "\033[0m"
-SEPARATOR = "\n" + BOLD + "-"*30 + "\n"
+SEPARATOR = "\n" + BOLD + "-"*30 + RESET + "\n"
 
 # Check if the environment variables are set
 if not (os.environ.get('DB_HOST') or os.environ.get('DB_USER') or os.environ.get('DB_PASSWORD') or os.environ.get('DB_NAME')):
@@ -36,7 +36,7 @@ if not (os.environ.get('DB_HOST') or os.environ.get('DB_USER') or os.environ.get
 else:
     # Fetch database connection details from environment variables
     DB_HOST = os.environ.get('DB_HOST')
-    DB_PORT = os.environ.get('DB_PORT')
+    DB_PORT = os.environ.get('DB_PORT', 5432)
     DB_USER = os.environ.get('DB_USER')
     DB_PASSWORD = os.environ.get('DB_PASSWORD')
     DB_NAME = os.environ.get('DB_NAME')
@@ -58,16 +58,16 @@ languages = [
     "ex", "exs", "excel", "f", "f90", "fix", "flix", "fortran", "fsharp", "gams", 
     "gauss", "gcode", "gherkin", "glsl", "gml", "go", "golo", "golang", "gradle", 
     "graphql", "groovy", "gnumake", "haml", "handlebars", "haskell", "haxe", "hsp", 
-    "http", "hy", "inform7", "ini", "irpf90", "isbl", "java", "javascript", "jboss-cli", 
-    "jscript", "json", "julia-repl", "julia", "kotlin", "kts", "lasso", "latex", 
-    "ldif", "leaf", "less", "lisp", "livecodeserver", "livescript", "llvm", "lsl", 
-    "log", "lua", "m", "makefile", "make", "markdown", "md", "mathematica", "matlab", 
-    "maxima", "mel", "mercury", "mipsasm", "mizar", "mkd", "modula-2", "modula-3", 
-    "mojolicious", "monkey", "moonscript", "mf", "n1ql", "nestedtext", "nginx", 
-    "nim", "nix", "node-repl", "nsis", "objective-c++", "objective_c", "objectivec", 
-    "objc", "ocaml", "openscad", "oxygene", "pascal", "parser3", "pas", "patch", 
-    "perl", "pf", "pgsql", "php-template", "php", "php3", "php4", "php5", "pl", 
-    "plaintext", "pony", "posh", "powershell", "pp", "postgres", "postgresql", 
+    "http", "hy", "html", "inform7", "ini", "irpf90", "isbl", "java", "javascript", 
+    "jboss-cli", "jscript", "json", "julia-repl", "julia", "kotlin", "kts", "lasso", 
+    "latex", "ldif", "leaf", "less", "lisp", "livecodeserver", "livescript", "llvm", 
+    "lsl", "log", "lua", "m", "makefile", "make", "markdown", "md", "mathematica", 
+    "matlab", "maxima", "mel", "mercury", "mipsasm", "mizar", "mkd", "modula-2", 
+    "modula-3", "mojolicious", "monkey", "moonscript", "mf", "n1ql", "nestedtext", 
+    "nginx", "nim", "nix", "node-repl", "nsis", "objective-c++", "objective_c", 
+    "objectivec", "objc", "ocaml", "openscad", "oxygene", "pascal", "parser3", "pas", 
+    "patch", "perl", "pf", "pgsql", "php-template", "php", "php3", "php4", "php5", 
+    "pl", "plaintext", "pony", "posh", "powershell", "pp", "postgres", "postgresql", 
     "processing", "profile", "prolog", "properties", "protobuf", "puppet", 
     "purebasic", "py", "python-repl", "python", "q", "qml", "r", "rails", "rb", 
     "reasonml", "rib", "roboconf", "routeros", "rs", "rsl", "ruby", "ruleslanguage", 
@@ -80,22 +80,15 @@ languages = [
     "yaml", "yml", "zephir"
 ]
 
-def process_content(content):
-    # Split the content by lines
-    lines = content.split('\n')
-
-    # Remove any trailing or leading empty lines
-    while lines and not lines[0].strip():
-        lines.pop(0)
-    while lines and not lines[-1].strip():
-        lines.pop()
-
-    # Join the lines back together
-    return '\n'.join(lines)
-
 def debug_print(message):
     if DEBUG:
-        print(message)
+        print(BLUE + "[DEBUG]: " + message + RESET)
+
+print (f"Starting mm-mdfix v{VERSION} ...")
+if COMMIT_MODE:
+    print(RED + BOLD + "COMMIT MODE: ENABLED" + RESET)
+else:
+    print(GREEN + BOLD + "COMMIT MODE: DISABLED" + RESET)
 
 # Connect to the PostgreSQL database
 conn = psycopg2.connect(
@@ -107,13 +100,27 @@ conn = psycopg2.connect(
 )
 cursor = conn.cursor()
 
+if cursor:
+    debug_print(f"Connecting to {DB_USER}@{DB_HOST}:{DB_PORT}\{DB_NAME} ...")
+    print(GREEN + BOLD + f"Successfully connected to database {DB_NAME}\n" + RESET)
+
 # Fetch messages from the posts table, optionally filtered by channelid, and where deleteat is set to 0 or NULL
 if CHANNEL_ID:
+    if DEBUG:
+        cursor.execute("SELECT count(id) FROM posts WHERE channelid = %s AND (deleteat = 0) AND TRIM(message) <> ''", (CHANNEL_ID,))
+        debugCount = cursor.fetchone()[0]
     cursor.execute(
         "SELECT id, message FROM posts WHERE channelid = %s AND (deleteat = 0) AND TRIM(message) <> ''", (CHANNEL_ID,))
 else:
+    if DEBUG:
+        cursor.execute("SELECT count(id) FROM posts WHERE deleteat = 0 AND TRIM(message) <> ''")
+        debugCount = cursor.fetchone()[0]
     cursor.execute(
         "SELECT id, message FROM posts WHERE deleteat = 0 AND TRIM(message) <> ''")
+
+# Output the number of rows found
+if DEBUG:
+    debug_print(f"Found {debugCount} posts to process!")
 
 # Function to process each match
 def format_code_blocks(message, languages):
@@ -123,12 +130,25 @@ def format_code_blocks(message, languages):
     # Function to process each match
     def process_match(match):
 
+        def process_content(content):
+            # Split the content by lines
+            lines = content.split('\n')
+
+            # Remove any trailing or leading empty lines
+            while lines and not lines[0].strip():
+                lines.pop(0)
+            while lines and not lines[-1].strip():
+                lines.pop()
+
+            # Join the lines back together
+            return '\n'.join(lines)
+
         content = match.group(1).strip()  # Get the content inside the ticks
         first_word = content.split()[0] if content else ""
 
         # If the content starts with a known language or already has newlines, return as is
         if first_word in languages or content.startswith('\n'):
-            debug_print(BLUE + f"[DEBUG]: {first_word} Detected" + RESET)
+            debug_print(f"{first_word} Detected")
             return match.group(0)  # Return the original match without changes
 
         # Process the content to ensure it has the desired format
@@ -147,12 +167,15 @@ def format_code_blocks(message, languages):
     return result
 
 # Process and update each message
+
+print(GREEN + BOLD + f"Processing posts ...\n" + RESET)
+
 for record in cursor:
     post_id, message = record
     # Check if the message contains a code block
     if '```' in message:
         debug_print(BLUE +
-              f"[DEBUG]: Found a message with a code block (Post ID: {post_id})" + RESET)
+              f"Found a message with a code block (Post ID: {post_id})" + RESET)
         formatted_message = format_code_blocks(message, languages)
         if message != formatted_message:
             print(GREEN + BOLD + f"Processing Post ID: {post_id}\n" + RESET)
@@ -165,14 +188,13 @@ for record in cursor:
                 cursor.execute(
                     "UPDATE posts SET message = %s WHERE id = %s", (formatted_message, post_id))
         else:
-            debug_print(
-                BLUE + f"[DEBUG]: No formatting changes required for Post ID: {post_id}\n[DEBUG]: Message:\n{message}" + RESET)
-            debug_print(SEPARATOR)
+            debug_print(BOLD + f"No formatting changes required for Post ID: {post_id}")
+            debug_print(f"Message:\n{message}\n{SEPARATOR}")
 
 # Commit the changes, rollback if not in commit mode
 if COMMIT_MODE:
     print(GREEN + "Changes committed to the database." + RESET)
 else:
-    print(RED + "No changes were committed to the database. Run in COMMIT_MODE to apply changes." + RESET)
+    print(RED + BOLD + "No changes were committed to the database!\nRun in COMMIT_MODE to apply changes." + RESET)
 cursor.close()
 conn.close()
