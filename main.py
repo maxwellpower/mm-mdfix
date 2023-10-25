@@ -14,7 +14,9 @@
 # AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
 # ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-VERSION = "1.0.0"
+# \-*- coding: utf-8 -*-
+
+VERSION = "1.0.1"
 
 import os
 import re
@@ -185,6 +187,10 @@ for record in cursor:
             print(formatted_message)
             print(SEPARATOR)
             if COMMIT_MODE:
+                try:
+                    cursor.execute("UPDATE posts SET message = %s WHERE id = %s", (formatted_message, post_id))
+                except Exception as e:
+                    print(RED + f"[ERROR]: Unable to commit Post ID: {post_id}. Error: {e}" + RESET)
                 cursor.execute(
                     "UPDATE posts SET message = %s WHERE id = %s", (formatted_message, post_id))
         else:
