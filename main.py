@@ -101,6 +101,7 @@ conn = psycopg2.connect(
     dbname=DB_NAME
 )
 cursor = conn.cursor()
+update_cursor = conn.cursor()
 
 if cursor:
     debug_print(f"Connecting to {DB_USER}@{DB_HOST}:{DB_PORT}\{DB_NAME} ...")
@@ -188,11 +189,10 @@ for record in cursor:
             print(SEPARATOR)
             if COMMIT_MODE:
                 try:
-                    cursor.execute("UPDATE posts SET message = %s WHERE id = %s", (formatted_message, post_id))
+                    update_cursor.execute(
+                        "UPDATE posts SET message = %s WHERE id = %s", (formatted_message, post_id))
                 except Exception as e:
-                    print(RED + f"[ERROR]: Unable to commit Post ID: {post_id}. Error: {e}" + RESET)
-                cursor.execute(
-                    "UPDATE posts SET message = %s WHERE id = %s", (formatted_message, post_id))
+                    print(f"Error while committing Post ID: {post_id}. Error: {e}")
         else:
             debug_print(BOLD + f"No formatting changes required for Post ID: {post_id}")
             debug_print(f"Message:\n{message}\n{SEPARATOR}")
@@ -203,4 +203,5 @@ if COMMIT_MODE:
 else:
     print(RED + BOLD + "No changes were committed to the database!\nRun in COMMIT_MODE to apply changes." + RESET)
 cursor.close()
+update_cursor.close()
 conn.close()
