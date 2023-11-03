@@ -14,50 +14,22 @@
 # AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
 # ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-# \-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
-VERSION = "1.0.1"
-
-import os
-import re
-import psycopg2
-
-# ANSI escape codes for styling
-RED = "\033[91m"
-GREEN = "\033[92m"
-YELLOW = "\033[93m"
-BLUE = "\033[94m"
-BOLD = "\033[1m"
-RESET = "\033[0m"
-SEPARATOR = "\n" + BOLD + "-"*30 + RESET + "\n"
-
-# Check if the environment variables are set
-if not (os.environ.get('DB_HOST') or os.environ.get('DB_USER') or os.environ.get('DB_PASSWORD') or os.environ.get('DB_NAME')):
-    print(RED + "[ERROR]: Environment Variables are NOT set!" + RESET)
-    exit()
-else:
-    # Fetch database connection details from environment variables
-    DB_HOST = os.environ.get('DB_HOST')
-    DB_PORT = os.environ.get('DB_PORT', 5432)
-    DB_USER = os.environ.get('DB_USER')
-    DB_PASSWORD = os.environ.get('DB_PASSWORD')
-    DB_NAME = os.environ.get('DB_NAME')
-    CHANNEL_ID = os.environ.get('CHANNEL_ID', None)
-    COMMIT_MODE = os.environ.get('COMMIT_MODE')
-    DEBUG = os.environ.get('DEBUG')
+VERSION = "1.0.2"
 
 # List of supported programming languages to check for
 languages = [
-    "1c", "abnf", "accesslog", "actionscript", "ada", "ada83", "ada95", "ada2005", "ada2012", "algol", "angelscript", "apache",
-    "apl", "applescript", "arcade", "arduino", "armasm", "asciidoc", "aspectj",
-    "as", "as3", "autohotkey", "autoit", "avrasm", "awk", "axapta", "bash", 
-    "basic", "bcpl", "bnf", "brainfuck", "bsdmake", "c", "c++", "c#", "cal", 
-    "capnproto", "ceylon", "clean", "clojure-repl", "clojure", "cmake", "coffeescript", 
-    "coffee", "coffee-script", "coq", "cos", "cobol", "cpp", "crmsh", "crystal", 
-    "cs", "csharp", "csp", "css", "d", "dart", "dlang", "delphi", "diff", "django", 
-    "dns", "dockerfile", "docker", "dos", "dsconfig", "dts", "dust", "ebnf", 
-    "ecmascript", "eiffel", "elixir", "elm", "erb", "erlang-repl", "erlang", "erl", 
-    "ex", "exs", "excel", "f", "f90", "fix", "flix", "fortran", "fsharp", "gams", 
+    "1c", "abnf", "accesslog", "actionscript", "ada", "ada83", "ada95", "ada2005",
+    "ada2012", "algol", "angelscript", "apache", "apl", "applescript", "arcade",
+    "arduino", "armasm", "asciidoc", "aspectj", "as", "as3", "autohotkey", "autoit",
+    "avrasm", "awk", "axapta", "bash", "basic", "bcpl", "bnf", "brainfuck", "bsdmake",
+    "c", "c++", "c#", "cal", "capnproto", "ceylon", "clean", "clojure-repl", "clojure",
+    "cmake", "coffeescript", "coffee", "coffee-script", "coq", "cos", "cobol", "cpp",
+    "crmsh", "crystal", "cs", "csharp", "csp", "css", "d", "dart", "dlang", "delphi",
+    "diff", "django", "dns", "dockerfile", "docker", "dos", "dsconfig", "dts", "dust",
+    "ebnf", "ecmascript", "eiffel", "elixir", "elm", "erb", "erlang-repl", "erlang",
+    "erl", "ex", "exs", "excel", "f", "f90", "fix", "flix", "fortran", "fsharp", "gams", 
     "gauss", "gcode", "gherkin", "glsl", "gml", "go", "golo", "golang", "gradle", 
     "graphql", "groovy", "gnumake", "haml", "handlebars", "haskell", "haxe", "hsp", 
     "http", "hy", "html", "inform7", "ini", "irpf90", "isbl", "java", "javascript", 
@@ -82,30 +54,54 @@ languages = [
     "yaml", "yml", "zephir"
 ]
 
-def debug_print(message):
-    if DEBUG:
-        print(BLUE + "[DEBUG]: " + message + RESET)
+import os
+import re
+import psycopg2
+import logging
 
-print (f"Starting mm-mdfix v{VERSION} ...")
+# Setup basic logging to stdout
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Check if the environment variables are set
+if not (os.environ.get('DB_HOST') or os.environ.get('DB_USER') or os.environ.get('DB_PASSWORD') or os.environ.get('DB_NAME')):
+    logging.error("Environment Variables are NOT set!")
+    exit()
+
+# Fetch database connection details from environment variables
+DB_HOST = os.environ.get('DB_HOST')
+DB_PORT = os.environ.get('DB_PORT', 5432)
+DB_USER = os.environ.get('DB_USER')
+DB_PASSWORD = os.environ.get('DB_PASSWORD')
+DB_NAME = os.environ.get('DB_NAME')
+CHANNEL_ID = os.environ.get('CHANNEL_ID', None)
+COMMIT_MODE = os.environ.get('COMMIT_MODE', 'false').lower() == 'true'
+DEBUG = os.environ.get('DEBUG', 'false').lower() == 'true'
+
+logging.info(f"Starting mm-mdfix v{VERSION} ...")
 if COMMIT_MODE:
-    print(RED + BOLD + "COMMIT MODE: ENABLED" + RESET)
+    logging.info("COMMIT MODE: ENABLED")
 else:
-    print(GREEN + BOLD + "COMMIT MODE: DISABLED" + RESET)
+    logging.info("COMMIT MODE: DISABLED")
 
 # Connect to the PostgreSQL database
-conn = psycopg2.connect(
-    host=DB_HOST,
-    port=DB_PORT,
-    user=DB_USER,
-    password=DB_PASSWORD,
-    dbname=DB_NAME
-)
+try:
+    conn = psycopg2.connect(
+        host=DB_HOST,
+        port=DB_PORT,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        dbname=DB_NAME
+    )
+except psycopg2.OperationalError as e:
+    logging.error(f"Failed to connect to the database: {e}")
+    exit()
+
 cursor = conn.cursor()
 update_cursor = conn.cursor()
 
 if cursor:
-    debug_print(f"Connecting to {DB_USER}@{DB_HOST}:{DB_PORT}\{DB_NAME} ...")
-    print(GREEN + BOLD + f"Successfully connected to database {DB_NAME}\n" + RESET)
+    logging.debug(f"Connecting to {DB_USER}@{DB_HOST}:{DB_PORT}/{DB_NAME} ...")
+    logging.info(f"Successfully connected to database {DB_NAME}")
 
 # Fetch messages from the posts table, optionally filtered by channelid, and where deleteat is set to 0 or NULL
 if CHANNEL_ID:
@@ -123,7 +119,7 @@ else:
 
 # Output the number of rows found
 if DEBUG:
-    debug_print(f"Found {debugCount} posts to process!")
+    logging.debug(f"Found {debugCount} posts to process!")
 
 # Function to process each match
 def format_code_blocks(message, languages):
@@ -151,19 +147,20 @@ def format_code_blocks(message, languages):
 
         # If the content starts with a known language or already has newlines, return as is
         if first_word in languages or content.startswith('\n'):
-            debug_print(f"{first_word} Detected")
+            logging.debug(f"{first_word} Detected")
             return match.group(0)  # Return the original match without changes
 
         # Process the content to ensure it has the desired format
-        # <-- This is the function we discussed earlier
         content = process_content(content)
 
         # Check if the content ends with three backticks without a newline
         if content.endswith('```'):
             content = content[:-3]  # Remove the trailing backticks
-
+            logging.debug(f"CONTENT RESULT: {result}")
         # Return the processed content wrapped in code block ticks
-        return "```\n" + content + "\n```"
+        result = "```\n" + content + "\n```"
+        logging.debug(f"REGEX RESULT: {result}")
+        return result
 
     # Use re.sub to replace each match with the processed version
     result = re.sub(pattern, process_match, message)
@@ -171,37 +168,52 @@ def format_code_blocks(message, languages):
 
 # Process and update each message
 
-print(GREEN + BOLD + f"Processing posts ...\n" + RESET)
+logging.info(f"Processing posts ...")
 
 for record in cursor:
     post_id, message = record
     # Check if the message contains a code block
     if '```' in message:
-        debug_print(BLUE +
-              f"Found a message with a code block (Post ID: {post_id})" + RESET)
+        logging.debug(f"Found a message with a code block (Post ID: {post_id})")
         formatted_message = format_code_blocks(message, languages)
         if message != formatted_message:
-            print(GREEN + BOLD + f"Processing Post ID: {post_id}\n" + RESET)
-            print(YELLOW + "Original Message:\n-----------------" + RESET)
-            print(message + "\n")
-            print(YELLOW + "Formatted Message:\n------------------" + RESET)
-            print(formatted_message)
-            print(SEPARATOR)
+            logging.info(f"Processing Post ID: {post_id}")
+            logging.info("Original Message:\n-----------------\n" + message)
+            logging.info("Formatted Message:\n------------------\n" + formatted_message)
             if COMMIT_MODE:
                 try:
                     update_cursor.execute(
                         "UPDATE posts SET message = %s WHERE id = %s", (formatted_message, post_id))
+                    conn.commit()  # Commit the update
+
+                    # Fetch the updated message from the database to verify
+                    verification_cursor = conn.cursor()
+                    verification_cursor.execute(
+                        "SELECT message FROM posts WHERE id = %s", (post_id,))
+                    updated_message = verification_cursor.fetchone()[0]
+                    verification_cursor.close()
+
+                    # Compare the updated message with the formatted message
+                    if updated_message.strip() == formatted_message.strip():
+                        logging.info(f"Post ID: {post_id} - Update verified successfully.")
+                    else:
+                        logging.critical(f"Post ID: {post_id} - Update verification failed. The message in the database does not match the expected formatted message.")
+                        exit(1)
+
                 except Exception as e:
-                    print(f"Error while committing Post ID: {post_id}. Error: {e}")
+                    logging.error(f"Error while committing Post ID: {post_id}. Error: {e}")
+                    conn.rollback()  # Rollback in case of error
         else:
-            debug_print(BOLD + f"No formatting changes required for Post ID: {post_id}")
-            debug_print(f"Message:\n{message}\n{SEPARATOR}")
+            logging.debug(f"No formatting changes required for Post ID: {post_id}")
+            logging.debug(f"Message:\n{message}\n")
 
 # Commit the changes, rollback if not in commit mode
 if COMMIT_MODE:
-    print(GREEN + "Changes committed to the database." + RESET)
+    logging.info("Changes committed to the database.")
 else:
-    print(RED + BOLD + "No changes were committed to the database!\nRun in COMMIT_MODE to apply changes." + RESET)
+    logging.warning("No changes were committed to the database! Run in COMMIT_MODE to apply changes.")
+
+# Close the cursors and the connection
 cursor.close()
 update_cursor.close()
 conn.close()
